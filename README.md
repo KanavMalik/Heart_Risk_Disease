@@ -1,3 +1,3 @@
-Predicting the heart of Risk Disease using Machine Learning Models(KNN, Naiye Bayes, SVM)
+Predicting the Risk of Heart Disease using Machine Learning Models(KNN, Naiye Bayes, SVM)
 
-Click on "Report.pdf" to view the Report
+Please click on "Report.pdf" to view the Report
