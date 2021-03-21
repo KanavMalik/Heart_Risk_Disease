@@ -2,20 +2,8 @@
 title: "Report"
 author: "Kanav Malik"
 output:
-  html_document:
-    toc: true
-    toc_float: true
-    toc_depth: 6
-    theme: cerulean
-    fig_caption: true
-    number_sections: false
-    highlight: tango
+  html_document
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-options(warn=-1)
-```
 
 **Libraries used**
 ```{r cars}
@@ -196,10 +184,6 @@ paste("Train Accuracy Rate =",round(1 - mean(knn.pred_train != dum_norm_train$ta
 confusionMatrix(knn.pred_test,as.factor(dum_norm_test$target))
 paste("Test Accuracy Rate =",round(1 - mean(knn.pred_test != dum_norm_test$target),4)*100,"%")
 
-```
-
-```{r, Turning warnings on again,echo=FALSE}
-options(warn=0)
 ```
 
 # Conclusion
