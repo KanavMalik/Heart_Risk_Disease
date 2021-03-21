@@ -1,0 +1,216 @@
+---
+title: "Report"
+author: "Kanav Malik"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 6
+    theme: cerulean
+    fig_caption: true
+    number_sections: false
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(warn=-1)
+```
+
+**Libraries used**
+```{r cars}
+library(MASS)
+library(lattice)
+library(caret)
+library(e1071)
+library(cluster)
+library(class)
+library(dplyr)
+library(factoextra)
+library(ggplot2)
+```
+
+# Importance of Analysis
+
+Efficient classification model could isolate risk factors  informative to doctors in predicting accurately in advance whether a person has the risk factors leading to a heart attack.
+
+# Description
+
+The scope of this project is to build and compare different classification models for predicting heart attack risk in patients given particular clinical histories and test results. There are 13 predictors in the dataset used in many published experiments. The target variable refers to the presence of heart disease in a patient.
+
+# Motivation Behind Study
+
+An efficient classification model with low false positives, false negatives and a good classification rate will help us to predict accurately in advance whether a person has a risk of a heart attack.
+
+# Methods for Study
+
+Logistic regression has been applied in the past, and it has a specificity of 91%.
+
+Supervised learning methods such as K-Nearest Neighbors, Naive Bayes, Support Vectors Machines to evaluate the chance of heart attack could allow us to provide a more accurate prediction than the traditional Logistic regression. Real-world data about the relationship between Y (Chance of heart attack) and X (Predictors 1-13) is rarely precisely linear. This possible deviation from linearity leads us to conclude that K-nearest neighbors a non-parametric approach, could provide better results to the actual relationship. Support Vector Machine approach is closely linked to Logistic regression, making this method an ideal comparison in the analysis of chance of heart attack data. Support Vector Machines can separate the hyperplane to maximize the margin between the support vectors while supporting both linear and non-linear aspects of real-world data and handle possible outliers.This approach is essential to apply as a way of finding the best classification and clarification of the data between all methods in an effort to make sound recommendations for clinical applications.
+
+**Heart Data**
+```{r pressure, echo=FALSE}
+Heart_Data <- read.csv("https://raw.githubusercontent.com/kanavmalik/Data_Repository/master/heart.csv")
+
+## Convert categorical data to factor datatype
+Heart_Data$sex <- as.factor(Heart_Data$sex)
+Heart_Data$cp <- as.factor(Heart_Data$cp)
+Heart_Data$fbs <- as.factor(Heart_Data$fbs)
+Heart_Data$restecg <- as.factor(Heart_Data$restecg)
+Heart_Data$exang <- as.factor(Heart_Data$exang)
+Heart_Data$slope <- as.factor(Heart_Data$slope)
+Heart_Data$ca <- as.factor(Heart_Data$ca)
+Heart_Data$thal <- as.factor(Heart_Data$thal)
+Heart_Data$target <- as.factor(Heart_Data$target)
+
+str(Heart_Data)
+```
+
+**Validation set approach(Test/Train Split)**
+```{r,echo=TRUE}
+set.seed(2704)
+roww <- nrow(Heart_Data)
+coll <- ncol(Heart_Data)
+numTrain <- floor(0.8 * roww) ##(Choose 80% data as training data)
+numTest <- roww - numTrain
+training <- Heart_Data[sample(roww, numTrain), ]
+test <- Heart_Data[sample(roww, numTest), ]
+
+```
+
+
+**Standardize the interval predictors of training and test data for knn and svm, and create dummy variables for the categorical variables**
+```{r,echo=TRUE}
+set.seed(2704)
+## Store original train,test data in a new train,test data which will be modified for knn,svm
+training_knn_svm <- training
+test_knn_svm <- test 
+
+## Standardize interval predictors of training,test data
+training_knn_svm$ï..age <- scale(training_knn_svm$ï..age)
+training_knn_svm$trestbps <- scale(training_knn_svm$trestbps)
+training_knn_svm$chol <- scale(training_knn_svm$chol)
+training_knn_svm$thalach <- scale(training_knn_svm$thalach)
+training_knn_svm$oldpeak <- scale(training_knn_svm$oldpeak)
+test_knn_svm$ï..age <- scale(test_knn_svm$ï..age)
+test_knn_svm$trestbps <- scale(test_knn_svm$trestbps)
+test_knn_svm$chol <- scale(test_knn_svm$chol)
+test_knn_svm$thalach <- scale(test_knn_svm$thalach)
+test_knn_svm$oldpeak <- scale(test_knn_svm$oldpeak)
+
+## Create dummies for the categorical predictors
+dummies_train <- dummyVars(~ ., data=training_knn_svm[,-c(1,4,5,8,10,14)])
+c2_train <- predict(dummies_train, training_knn_svm[,-14])
+
+dummies_test <- dummyVars(~ ., data=test_knn_svm[,-c(1,4,5,8,10,14)])
+c2_test <- predict(dummies_test, test_knn_svm[,-14])
+
+#Combine dummy and normalized data along with the target variable for train and test set
+dum_norm_train <- as.data.frame(cbind(training_knn_svm[,c(14,1,4,5,8,10)], c2_train))
+dum_norm_test <- as.data.frame(cbind(test_knn_svm[,c(14,1,4,5,8,10)], c2_test))
+
+```
+
+
+**SVM**
+```{r,echo=TRUE,warning=FALSE}
+set.seed(2704)
+
+## Linear kernel
+tune.out.linear <- tune.svm(target ~., data=dum_norm_train, kernel='linear', cost=seq(10,15,by=1), 
+                            gamma = seq(1,10,by=5))
+summary(tune.out.linear$best.model)
+
+svm_predict_train <- predict(tune.out.linear$best.model, dum_norm_train[,-1])
+svm_predict_test <- predict(tune.out.linear$best.model, dum_norm_test[,-1])
+
+confusionMatrix(svm_predict_train, dum_norm_train$target)
+paste("Train accuracy rate for linear kernel =" ,
+      round(1-mean(svm_predict_train != dum_norm_train[,"target"]),4)*100,"%")
+confusionMatrix(svm_predict_test, dum_norm_test$target)
+paste("Test accuracy rate for linear kernel =" ,
+      round(1-mean(svm_predict_test != dum_norm_test[,"target"]),4)*100,"%")
+
+#Polynomial kernel
+tune.out.poly <- tune.svm(target ~., data=dum_norm_train, 
+                     kernel='polynomial', cost=seq(1,10,by=3), gamma = seq(3,10,by=3),
+                     degree=seq(1,2,by = 1))
+summary(tune.out.poly$best.model)
+
+svm_predict_train <- predict(tune.out.poly$best.model, dum_norm_train[,-1])
+svm_predict_test <- predict(tune.out.poly$best.model, dum_norm_test[,-1])
+confusionMatrix(svm_predict_train, dum_norm_train$target)
+paste("Train accuracy rate for polynomial kernel =" ,
+      round(1-mean(svm_predict_train != dum_norm_train[,"target"]),4)*100,"%")
+confusionMatrix(svm_predict_test, dum_norm_test$target)
+paste("Test accuracy rate for polynomial kernel =" ,
+      round(1-mean(svm_predict_test != dum_norm_test[,"target"]),4)*100,"%")
+
+## Radial kernel
+tune.out.radial <- tune.svm(target ~., data=dum_norm_train, 
+                 kernel='radial', cost=seq(1,10,by=3), gamma = seq(1,10,by=2))
+summary(tune.out.radial$best.model)
+
+svm_predict_train <- predict(tune.out.radial$best.model, dum_norm_train[,-1])
+svm_predict_test <- predict(tune.out.radial$best.model, dum_norm_test[,-1])
+confusionMatrix(svm_predict_train, dum_norm_train$target)
+paste("Train accuracy rate for radial kernel =" ,
+      round(1-mean(svm_predict_train != dum_norm_train[,"target"]),4)*100,"%")
+confusionMatrix(svm_predict_test, dum_norm_test$target)
+paste("Test accuracy rate for radial kernel =" ,
+      round(1-mean(svm_predict_test != dum_norm_test[,"target"]),4)*100,"%")
+
+```
+
+**Naive Bayes**
+```{r,echo=TRUE,warning=FALSE}
+set.seed(2704)
+### KDC ###
+nb1 <- naiveBayes(target ~.,data=training, usekernel=T) 
+
+pred_train <- predict(nb1, training[,1:13])
+pred_test <- predict(nb1, test[,1:13])
+
+confusionMatrix(pred_train,training$target)
+paste("Train Accuracy Rate =",round(1 - mean(pred_train != training$target),4)*100,"%")
+confusionMatrix(pred_test,test$target)
+paste("Test Accuracy Rate =",round(1 - mean(pred_test != test$target),4)*100,"%")
+
+```
+
+**KNN**
+
+```{r,echo=TRUE}
+set.seed(2704)
+train.Predictors <- data.frame(dum_norm_train[,c(-1)]) ## training predictors
+train.Response <- dum_norm_train[,"target"] ## training response variable
+test.Predictors <- data.frame(dum_norm_test[,c(-1)]) ## testing predictors
+test.Response <- dum_norm_test[,"target"] ## testing response variable
+
+knn.best <- tune.knn(train.Predictors,train.Response,k=seq(2,50,by=1))
+
+knn.pred_train <- knn(train.Predictors,train.Predictors,train.Response,k=knn.best$best.parameters[,1])
+knn.pred_test <- knn(train.Predictors,test.Predictors,train.Response,k=knn.best$best.parameters[,1])
+confusionMatrix(knn.pred_train,as.factor(dum_norm_train$target))
+paste("Train Accuracy Rate =",round(1 - mean(knn.pred_train != dum_norm_train$target),4)*100,"%")
+confusionMatrix(knn.pred_test,as.factor(dum_norm_test$target))
+paste("Test Accuracy Rate =",round(1 - mean(knn.pred_test != dum_norm_test$target),4)*100,"%")
+
+```
+
+```{r, Turning warnings on again,echo=FALSE}
+options(warn=0)
+```
+
+# Conclusion
+
+The SVM radial kernel performs the best based on the Train and Test MSE’s. It seems to be a good model for predicting the true positives and true negatives and scores better on all metrics of accuracy, sensitivity, specificity, false negatives. However, if we compare the models based on Specificity or False Positives rate, then logistic regression performs way  better than any other model(91% specificity, done in previous study).
+
+If the task if of predicting whether a person has the risk of heart attack, then we would like to have a low False positive rate i.e. low chances of incorrectly classifying patients at risk as not being at a risk of heart attack. So if the purpose is of having a low False positive rate, then logistic regression is the best model to use and if the purpose is increasing the sensitivity(low false negative rate), then SVM radial kernel is the best model to use. Finally, if the task is inference for research, then logistic regression is the only parametric method to use out of these methods.
+
+
+
+
+
+
+
